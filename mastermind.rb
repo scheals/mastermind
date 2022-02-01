@@ -180,6 +180,7 @@ class Mastermind
   def self.count
     @game_count += 1
   end
+
   private
 
   def play
@@ -225,13 +226,11 @@ class Computer < Player
     @ishuman = false
   end
 
-  # rubocop:disable Layout/LineLength, Metrics/ParameterLists
-  def create_code(colour1 = COLOURS.sample, colour2 = COLOURS.sample, colour3 = COLOURS.sample, colour4 = COLOURS.sample)
-    @secret_code = [colour1, colour2, colour3, colour4]
+  def create_code(*code)
+    code << COLOURS.sample while code.length < 5
+    @secret_code = code[0..3]
   end
-  # rubocop:enable Layout/LineLength, Metrics/ParameterLists
 end
-
 space_oddysey = Mastermind.new
 brave = Human.new('Dave')
 hal = Computer.new('Hal')
