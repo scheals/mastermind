@@ -12,9 +12,12 @@ module Rules
 
     @turn += 1
     win?(guess) ? codebreaker_wins : codemaker_wins(turn_limit?(turn))
-
     display.add_guess(guess, turn)
-    return display.add_hint([' ', ' ', ' ', ' '], turn) unless check_any?(guess)
+    unless check_any?(guess)
+      display.add_hint([' ', ' ', ' ', ' '], turn)
+      play
+      return
+    end
 
     create_hint(guess, turn)
     display.show_gameboard
@@ -30,18 +33,44 @@ module Rules
   def create_hint(guess, turn)
     hint = []
     check_colours(check_matches(guess, hint), hint)
-
     display.add_hint(hint, turn)
   end
 
-  def check_colours(guess_without_perfect_matches, hint)
-    hint.push(guess_without_perfect_matches.intersection(secret_code).map { 'exists' })
+  def check_colours(state_without_matches, hint)
+    hint.push(state_without_matches[:guess].filter_map do |colour|
+      'exists' if state_without_matches[:secret_code].include?(colour)
+    end)
   end
 
   def check_matches(guess, hint)
     perfect_matches = guess.filter.with_index { |colour, i| colour == secret_code[i] }
     hint.push(perfect_matches.map { 'perfect' })
-    guess - perfect_matches
+    state_without_matches = {}
+    state_without_matches[:secret_code] = prepare_code(secret_code, perfect_matches)
+    state_without_matches[:guess] = drop_perfect_matches(guess, perfect_matches)
+    state_without_matches
+  end
+
+  def prepare_code(code, matches)
+    secret_code_without_matches = Array.new(code)
+    matches.length.times do
+      secret_code_without_matches.detect.with_index do |colour, i|
+        secret_code_without_matches.delete_at(i) if matches.include?(colour)
+      end
+    end
+    puts "#{secret_code_without_matches} secret"
+    secret_code_without_matches
+  end
+
+  def drop_perfect_matches(guess, matches)
+    guess_without_matches = Array.new(guess)
+    matches.length.times do
+      guess_without_matches.detect.with_index do |colour, i|
+        guess_without_matches.delete_at(i) if matches.include?(colour)
+      end
+    end
+    puts "#{guess_without_matches} guess"
+    guess_without_matches
   end
 
   def legal?(guess)
@@ -63,7 +92,6 @@ module Rules
   end
 
   def turn_limit?(turn)
-    p turn
     return true if turn == 10
 
     false
@@ -75,10 +103,10 @@ module Rules
   end
 
   def codemaker_wins(turn_limit_reached)
-    if turn_limit_reached
-      display.codemaker_win
-      declare_winner
-    end
+    return unless turn_limit_reached
+
+    display.codemaker_win
+    declare_winner
   end
 end
 
@@ -172,7 +200,7 @@ class Mastermind
     return display.in_progress unless @in_progress
 
     display.introduce_rules
-    @secret_code = player2.create_code
+    @secret_code = player2.create_code('pink', 'pink', 'red', 'red')
     p secret_code
     play
   end
