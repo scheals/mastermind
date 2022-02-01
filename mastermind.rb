@@ -37,8 +37,8 @@ module Rules
   end
 
   def check_colours(state_without_matches, hint)
-    hint.push(state_without_matches[:guess].filter_map do |colour|
-      'exists' if state_without_matches[:secret_code].include?(colour)
+    hint.push(state_without_matches[:secret_code].filter_map do |colour|
+      'exists' if state_without_matches[:guess].include?(colour)
     end)
   end
 
@@ -46,31 +46,30 @@ module Rules
     perfect_matches = guess.filter.with_index { |colour, i| colour == secret_code[i] }
     hint.push(perfect_matches.map { 'perfect' })
     state_without_matches = {}
+    p perfect_matches
     state_without_matches[:secret_code] = prepare_code(secret_code, perfect_matches)
     state_without_matches[:guess] = drop_perfect_matches(guess, perfect_matches)
     state_without_matches
   end
 
   def prepare_code(code, matches)
-    secret_code_without_matches = Array.new(code)
+    secret_code = Array.new(code)
     matches.length.times do
-      secret_code_without_matches.detect.with_index do |colour, i|
-        secret_code_without_matches.delete_at(i) if matches.include?(colour)
-      end
+      secret_code.delete_at(secret_code.index(matches.detect { |colour| secret_code.include?(colour) }))
     end
-    puts "#{secret_code_without_matches} secret"
-    secret_code_without_matches
+    puts "#{secret_code} secret"
+    secret_code
   end
 
   def drop_perfect_matches(guess, matches)
-    guess_without_matches = Array.new(guess)
+    guess = Array.new(guess)
     matches.length.times do
-      guess_without_matches.detect.with_index do |colour, i|
-        guess_without_matches.delete_at(i) if matches.include?(colour)
+      guess.detect.with_index do |colour, i|
+        guess.delete_at(i) if matches.include?(colour)
       end
     end
-    puts "#{guess_without_matches} guess"
-    guess_without_matches
+    puts "#{guess} guess"
+    guess
   end
 
   def legal?(guess)
@@ -264,3 +263,13 @@ brave = Human.new('Dave')
 hal = Computer.new('Hal')
 space_oddysey.add_players(brave, hal)
 space_oddysey.start
+
+# ["red", "red", "red", "red"] [["perfect", "perfect"], []]
+# ["pink", "pink", "pink", "pink"] [["perfect", "perfect"], []]
+# ["red", "pink", "red", "pink"] [["perfect", "perfect"], ["exists", "exists"]]
+# ["pink", "red", "red", "pink"] [["perfect", "perfect"], ["exists", "exists"]]
+# ["pink", "red", "pink", "red"] [["perfect", "perfect"], ["exists", "exists"]]
+# ["pink", "red", "pink", "pink"] [["perfect"], ["exists", "exists", "exists"]]
+# ["red", "red", "red", "pink"] [["perfect"], ["exists", "exists", "exists"]]
+# ["pink", "red", "red", "pink"] [["perfect", "perfect"], ["exists", "exists"]]
+# ["pink", "pink", "red", "pink"] [["perfect", "perfect", "perfect"], []]
