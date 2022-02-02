@@ -13,14 +13,11 @@ module Rules
     @turn += 1
     win?(guess) ? codebreaker_wins : codemaker_wins(turn_limit?(turn))
     display.add_guess(guess, turn)
-    unless check_any?(guess)
+    if check_any?(guess)
+      create_hint(guess, turn)
+    else
       display.add_hint([' ', ' ', ' ', ' '], turn)
-      play
-      return
     end
-
-    create_hint(guess, turn)
-    display.show_gameboard
     play
   end
 
@@ -37,11 +34,8 @@ module Rules
   end
 
   def check_colours(colours, code, hint)
-    puts "#{colours} those are colours"
-    puts "#{code} this is the code"
     colours.each do |colour, count|
       while (code[colour] >= count || count >= code[colour]) && code[colour].positive? && count.positive?
-        puts "colours: #{colour} #{count} code: #{colour} #{code[colour]}"
         hint.push('exists')
         code[colour] -= 1
         count -= 1
@@ -58,9 +52,9 @@ module Rules
   def tally_helper(guess, matches, hint)
     tallied_matches = matches.tally
     tallied_guess = guess.tally
+    tallied_code = secret_code.tally
     tallied_matches.default = 0
     tallied_guess.default = 0
-    tallied_code = secret_code.tally
     tallied_code.default = 0
     check_colours(drop_guess_matches(tallied_guess, tallied_matches), drop_code_matches(tallied_code, tallied_matches), hint)
   end
@@ -70,7 +64,6 @@ module Rules
   end
 
   def drop_guess_matches(guess, matches)
-    puts "#{matches} those are matches"
     guess.each { |colour, count| guess[colour] = count - matches[colour] }
   end
 
@@ -148,7 +141,9 @@ class Display
     gameboard[1].push(hint)
   end
 
-  def show_gameboard
+  def show_gameboard(turn)
+    puts "Turn #{turn}"
+    puts 'This is the current state of the gameboard:'
     gameboard[0].length.times do |i|
       puts "#{gameboard[0][i]} #{gameboard[1][i]}"
     end
@@ -201,7 +196,7 @@ class Mastermind
     return display.in_progress unless @in_progress
 
     display.introduce_rules
-    @secret_code = player2.create_code('pink', 'pink', 'red', 'red')
+    @secret_code = player2.create_code
     p secret_code
     play
   end
@@ -215,6 +210,7 @@ class Mastermind
   def play
     return display.game_end unless @in_progress
 
+    display.show_gameboard(@turn)
     display.ask_guess
     make_guess(gets.chomp.to_s.downcase.split(' '), @turn)
   end
