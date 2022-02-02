@@ -11,14 +11,13 @@ module Rules
     return play unless legal?(guess)
 
     @turn += 1
-    win?(guess) ? codebreaker_wins : codemaker_wins(turn_limit?(turn))
     display.add_guess(guess, turn)
     if check_any?(guess)
       create_hint(guess, turn)
     else
       display.add_hint([' ', ' ', ' ', ' '], turn)
     end
-    play
+    win?(guess) ? codebreaker_wins : codemaker_wins(turn_limit?)
   end
 
   def check_any?(guess)
@@ -85,21 +84,21 @@ module Rules
     false
   end
 
-  def turn_limit?(turn)
-    return true if turn == 10
+  def turn_limit?
+    return true if @turn > 10
 
     false
   end
 
   def codebreaker_wins
-    display.codebreaker_win
+    display.codebreaker_win(@turn)
     declare_winner
   end
 
   def codemaker_wins(turn_limit_reached)
     return unless turn_limit_reached
 
-    display.codemaker_win
+    display.codemaker_win(@turn)
     declare_winner
   end
 end
@@ -157,11 +156,13 @@ class Display
     puts 'Game has already ended.'
   end
 
-  def codebreaker_win
+  def codebreaker_win(turn)
+    show_gameboard(turn - 1)
     puts "Congratulations, you've guessed correctly!"
   end
 
-  def codemaker_win
+  def codemaker_win(turn)
+    show_gameboard(turn - 1)
     puts "Congratulations, your code was not broken!"
   end
 end
@@ -176,8 +177,6 @@ class Mastermind
 
   def initialize
     @game_name = "Game #{self.class.count}"
-    @turn = 1
-    @in_progress = true
   end
 
   def add_players(player1, player2)
@@ -199,10 +198,12 @@ class Mastermind
   def start
     return unless players_ready? && display_ready?
 
+    @turn = 1
+    @in_progress = true
     display.introduce_rules
     @secret_code = player2.create_code
     p secret_code
-    play
+    game_loop
   end
 
   def self.count
@@ -211,10 +212,16 @@ class Mastermind
 
   private
 
-  def play
-    return display.game_end unless @in_progress
+  def game_loop
+    until turn_limit?
+      return display.game_end unless @in_progress
 
-    display.show_gameboard(@turn)
+      display.show_gameboard(@turn)
+      play
+    end
+  end
+
+  def play
     display.ask_guess
     make_guess(gets.chomp.to_s.downcase.split(' '), @turn)
   end
