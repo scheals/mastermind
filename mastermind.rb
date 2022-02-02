@@ -193,11 +193,11 @@ class Mastermind
   def attach_display(display)
     @display = display
     @gameboard = display.gameboard
-    "Added #{display} to #{self}"
+    "Added #{display} to #{game_name}"
   end
 
   def start
-    return display.in_progress unless @in_progress
+    return unless players_ready? && display_ready?
 
     display.introduce_rules
     @secret_code = player2.create_code
@@ -223,10 +223,18 @@ class Mastermind
     @in_progress = false
   end
 
-  def ready?
-    return false unless player1 & player2 & display
+  def players_ready?
+    return true if player1 && player2
 
-    true
+    puts 'This game is not yet ready to start. Make sure your players are present.'
+    false
+  end
+
+  def display_ready?
+    return true if display
+
+    puts 'Seems like you forgot to attach your display.'
+    false
   end
 end
 
@@ -269,17 +277,7 @@ end
 space_oddysey = Mastermind.new
 cosmos = Display.new
 brave = Human.new('Dave')
-hal = Computer.new('Hal')
+hal = Computer.new('HAL')
 space_oddysey.add_players(brave, hal)
 space_oddysey.attach_display(cosmos)
 space_oddysey.start
-
-# ["red", "red", "red", "red"] [["perfect", "perfect"], []]
-# ["pink", "pink", "pink", "pink"] [["perfect", "perfect"], []]
-# ["red", "pink", "red", "pink"] [["perfect", "perfect"], ["exists", "exists"]]
-# ["pink", "red", "red", "pink"] [["perfect", "perfect"], ["exists", "exists"]]
-# ["pink", "red", "pink", "red"] [["perfect", "perfect"], ["exists", "exists"]]
-# ["pink", "red", "pink", "pink"] [["perfect"], ["exists", "exists", "exists"]]
-# ["red", "red", "red", "pink"] [["perfect"], ["exists", "exists", "exists"]]
-# ["pink", "red", "red", "pink"] [["perfect", "perfect"], ["exists", "exists"]]
-# ["pink", "pink", "red", "pink"] [["perfect", "perfect", "perfect"], []]
