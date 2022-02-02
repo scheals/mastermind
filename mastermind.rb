@@ -175,8 +175,6 @@ class Mastermind
   @game_count = 0
 
   def initialize
-    @display = Display.new
-    @gameboard = @display.gameboard
     @game_name = "Game #{self.class.count}"
     @turn = 1
     @in_progress = true
@@ -190,6 +188,12 @@ class Mastermind
     @player1_name = player1.name
     @player2_name = player2.name
     "Added #{player1_name} and #{player2_name} to #{game_name}."
+  end
+
+  def attach_display(display)
+    @display = display
+    @gameboard = display.gameboard
+    "Added #{display} to #{self}"
   end
 
   def start
@@ -217,6 +221,12 @@ class Mastermind
 
   def declare_winner
     @in_progress = false
+  end
+
+  def ready?
+    return false unless player1 & player2 & display
+
+    true
   end
 end
 
@@ -257,9 +267,11 @@ class Computer < Player
   end
 end
 space_oddysey = Mastermind.new
+cosmos = Display.new
 brave = Human.new('Dave')
 hal = Computer.new('Hal')
 space_oddysey.add_players(brave, hal)
+space_oddysey.attach_display(cosmos)
 space_oddysey.start
 
 # ["red", "red", "red", "red"] [["perfect", "perfect"], []]
