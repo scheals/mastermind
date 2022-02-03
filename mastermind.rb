@@ -198,8 +198,10 @@ class Mastermind
   def start
     return unless players_ready? && display_ready?
 
+    @in_progress = true if @in_progress.nil?
+    return display.game_end unless @in_progress
+
     @turn = 1
-    @in_progress = true
     display.introduce_rules
     @secret_code = player2.create_code
     p secret_code
@@ -213,9 +215,7 @@ class Mastermind
   private
 
   def game_loop
-    until turn_limit?
-      return display.game_end unless @in_progress
-
+    until turn_limit? || !@in_progress
       display.show_gameboard(@turn)
       play
     end
@@ -287,4 +287,5 @@ brave = Human.new('Dave')
 hal = Computer.new('HAL')
 space_oddysey.add_players(brave, hal)
 space_oddysey.attach_display(cosmos)
+space_oddysey.start
 space_oddysey.start
