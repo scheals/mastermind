@@ -7,6 +7,8 @@ module Rules
   HINT_SPACE = [' ', ' ', ' ', ' '].freeze
   GAMEBOARD = [[GUESS_SPACE], [HINT_SPACE]].freeze
 
+  private
+
   def make_guess(guess, turn)
     return play unless legal?(guess)
 
@@ -91,14 +93,14 @@ module Rules
   end
 
   def codebreaker_wins
-    display.codebreaker_win(@turn)
+    display.codebreaker_win(@turn, codebreaker)
     declare_winner
   end
 
   def codemaker_wins(turn_limit_reached)
     return unless turn_limit_reached
 
-    display.codemaker_win(@turn)
+    display.codemaker_win(@turn, codemaker)
     declare_winner
   end
 end
@@ -156,14 +158,14 @@ class Display
     puts 'Game has already ended.'
   end
 
-  def codebreaker_win(turn)
+  def codebreaker_win(turn, codebreaker)
     show_gameboard(turn - 1)
-    puts "Congratulations, you've guessed correctly!"
+    puts "Congratulations #{codebreaker.name}, you've guessed correctly!"
   end
 
-  def codemaker_win(turn)
+  def codemaker_win(turn, codemaker)
     show_gameboard(turn - 1)
-    puts "Congratulations, your code was not broken!"
+    puts "Congratulations #{codemaker.name}, your code was not broken!"
   end
 end
 
@@ -171,7 +173,7 @@ end
 class Mastermind
   include Rules
   attr_reader :player1_name, :player2_name, :game_name, :player1, :player2, :secret_code,
-              :display, :gameboard
+              :display, :gameboard, :codemaker, :codebreaker
 
   @game_count = 0
 
@@ -186,6 +188,7 @@ class Mastermind
     @player2 = player2
     @player1_name = player1.name
     @player2_name = player2.name
+    ask_roles
     "Added #{player1_name} and #{player2_name} to #{game_name}."
   end
 
@@ -203,7 +206,7 @@ class Mastermind
 
     @turn = 1
     display.introduce_rules
-    @secret_code = player2.create_code
+    @secret_code = codemaker.create_code
     p secret_code
     game_loop
   end
@@ -230,6 +233,23 @@ class Mastermind
     @in_progress = false
   end
 
+  def ask_roles
+    puts "Who should be the codemaker? Type 1 for #{player1_name} or type 2 for #{player2_name}."
+    choice = gets.chomp.to_s
+    if %w[1 2].include?(choice)
+      choice == '1' ? Player.assign_roles(player1, player2) : Player.assign_roles(player2, player1)
+      assign_roles
+    else
+      puts 'You have to input 1 or 2. Try again.'
+      ask_roles
+    end
+  end
+
+  def assign_roles
+    @codemaker = player1.role == 'codemaker' ? player1 : player2
+    @codebreaker = player1.role == 'codebreaker' ? player1 : player2
+  end
+
   def players_ready?
     return true if player1 && player2
 
@@ -248,11 +268,18 @@ end
 # This class handles player info and creation.
 class Player
   attr_reader :name, :points, :ishuman
+  attr_accessor :role
 
   def initialize(name)
     @name = name.to_s
     @role = nil
     @points = nil
+  end
+
+  def self.assign_roles(player1, player2)
+    player1.role = 'codemaker'
+    player2.role = 'codebreaker'
+    puts "Added #{player1.name} as #{player1.role} and #{player2.name} as #{player2.role}."
   end
 end
 
