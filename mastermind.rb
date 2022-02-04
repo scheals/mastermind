@@ -212,8 +212,7 @@ class Mastermind
     @turn = 1
     display.introduce_rules
     @secret_code = codemaker.create_code
-    p secret_code
-    game_loop
+    codemaker.ishuman ? computer_game_loop : game_loop
   end
 
   def self.count
@@ -227,6 +226,18 @@ class Mastermind
       display.show_gameboard(@turn)
       play
     end
+  end
+
+  def computer_game_loop
+    until turn_limit? || !@in_progress
+      display.show_gameboard(@turn)
+      computer_play
+    end
+  end
+
+  def computer_play
+    display.ask_guess
+    make_guess(codebreaker.create_code, @turn)
   end
 
   def play
