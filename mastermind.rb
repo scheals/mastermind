@@ -17,7 +17,7 @@ module Rules
     if check_any?(guess)
       create_hint(guess, turn)
     else
-      display.add_hint([' ', ' ', ' ', ' '], turn)
+      display.add_hint([[], []], turn)
     end
     win?(guess) ? codebreaker_wins : codemaker_wins(turn_limit?)
   end
@@ -41,7 +41,7 @@ module Rules
   end
 
   def create_hint(guess, turn)
-    hint = []
+    hint = [[], []]
     check_matches(guess, hint)
     display.add_hint(hint, turn)
   end
@@ -49,7 +49,7 @@ module Rules
   def check_colours(colours, code, hint)
     colours.each do |colour, count|
       while (code[colour] >= count || count >= code[colour]) && code[colour].positive? && count.positive?
-        hint.push('exists')
+        hint[1].push('exists')
         code[colour] -= 1
         count -= 1
       end
@@ -58,7 +58,7 @@ module Rules
 
   def check_matches(guess, hint)
     perfect_matches = guess.filter.with_index { |colour, i| colour == secret_code[i] }
-    hint.push(perfect_matches.map { 'perfect' })
+    hint[0] = perfect_matches.map { 'perfect' }
     tally_helper(guess, perfect_matches, hint)
   end
 
