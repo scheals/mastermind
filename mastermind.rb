@@ -118,7 +118,7 @@ module Swaszek
 
   def create_all_possibilities
     @possibilities = []
-    Rules::COLOURS.permutation(4) { |combination| @possibilities.push(combination) }
+    Rules::COLOURS.repeated_permutation(4) { |possibility| @possibilities.push(possibility) }
     @possibilities
   end
 
@@ -126,9 +126,39 @@ module Swaszek
     guess = read_guess(turn)
     if (perfects + exists).zero?
       4.times do |i|
-        @possibilities.filter! { |possibility| !possibility.include?(guess[i]) }
+        next if guess[i] == guess[i - 1]
+
+        @possibilities.reject! { |possibility| possibility.include?(guess[i]) }
+        puts "I removed some!"
+        p @possibilities
       end
+    elsif (perfects + exists) == 4
+      guesses = guess.tally
+      tallied_possibilities = @possibilities.reduce([]) { |acc, colours| acc << colours.tally }
+      tallied_possibilities.select! do |possibility|
+        count = {}
+        count.default = 0
+        possibility.each_key do |colour|
+          count[colour] = possibility[colour] if guesses.keys.include?(colour)
+        end
+        if guesses.values.sum == count.values.sum
+          puts "#{guesses} this was the guess"
+          puts "#{possibility} this was the possibility"
+          puts 'I got one!'
+          next true
+        end
+        next false
+      end
+      jackpot = tallied_possibilities.each_with_object([]) do |hash, array|
+        helper = []
+        hash.each_pair { |colour, count| helper << "#{colour} " * count }
+        array << helper.join('').split(' ')
+      end
+      p jackpot
+      @possibilities.select! { |possibility| jackpot.include?(possibility) }
     end
+    @possibilities.reject! { |possibility| possibility == guess }
+    p @possibilities
   end
 end
 
@@ -265,8 +295,14 @@ class Mastermind
   def computer_play
     return make_guess(%w[pink pink red red], @turn) if @turn == 1
 
+    # codebreaker.read_results(@turn)
+    # return make_guess(%w[yellow yellow green green], @turn) if @turn == 2
+
+    # codebreaker.read_results(@turn)
+    # return make_guess(%w[yellow yellow yellow green], @turn) if @turn == 3
+
     codebreaker.read_results(@turn)
-    p possibilities = codebreaker.possibilities.sample
+    possibilities = codebreaker.possibilities.sample
     make_guess(possibilities, @turn)
   end
 
