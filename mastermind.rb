@@ -7,8 +7,6 @@ module Rules
   HINT_SPACE = [' ', ' ', ' ', ' '].freeze
   GAMEBOARD = [[GUESS_SPACE], [HINT_SPACE]].freeze
 
-  private
-
   def make_guess(guess, turn)
     return play unless legal?(guess)
 
@@ -102,6 +100,35 @@ module Rules
 
     display.codemaker_win(@turn, codemaker)
     declare_winner
+  end
+end
+
+# This is Swaszek's algorithm for code breaking.
+module Swaszek
+  def read_results(turn)
+    perfects = game.gameboard[1][turn - 2][0].length if turn > 1
+    exists = game.gameboard[1][turn - 2][1].length if turn > 1
+    calculate_possibilities(perfects, exists, turn)
+  end
+
+  def read_guess(turn)
+    create_all_possibilities if @possibilities.nil?
+    game.gameboard[0][turn - 2] if turn > 1
+  end
+
+  def create_all_possibilities
+    @possibilities = []
+    Rules::COLOURS.permutation(4) { |combination| @possibilities.push(combination) }
+    @possibilities
+  end
+
+  def calculate_possibilities(perfects, exists, turn)
+    guess = read_guess(turn)
+    if (perfects + exists).zero?
+      4.times do |i|
+        @possibilities.filter! { |possibility| !possibility.include?(guess[i]) }
+      end
+    end
   end
 end
 
@@ -236,8 +263,11 @@ class Mastermind
   end
 
   def computer_play
-    display.ask_guess
-    make_guess(codebreaker.create_code, @turn)
+    return make_guess(%w[pink pink red red], @turn) if @turn == 1
+
+    codebreaker.read_results(@turn)
+    p possibilities = codebreaker.possibilities.sample
+    make_guess(possibilities, @turn)
   end
 
   def play
@@ -333,7 +363,8 @@ end
 # This is a class that handles Computer players.
 class Computer < Player
   include Rules
-  attr_reader :name, :points, :ishuman
+  include Swaszek
+  attr_reader :name, :points, :ishuman, :possibilities
 
   def initialize(name)
     super(name)
