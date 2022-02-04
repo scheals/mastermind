@@ -22,6 +22,18 @@ module Rules
     win?(guess) ? codebreaker_wins : codemaker_wins(turn_limit?)
   end
 
+  def legal?(guess)
+    if guess.length != 4
+      puts 'There are four spaces to fill.'
+      return false
+    end
+    unless guess.all? { |colour| COLOURS.include?(colour) }
+      puts 'At least one of the colours is not a possible one in the game.'
+      return false
+    end
+    true
+  end
+
   def check_any?(guess)
     return false if secret_code.intersection(guess).empty?
 
@@ -66,18 +78,6 @@ module Rules
 
   def drop_guess_matches(guess, matches)
     guess.each { |colour, count| guess[colour] = count - matches[colour] }
-  end
-
-  def legal?(guess)
-    if guess.length != 4
-      puts 'There are four spaces to fill.'
-      return false
-    end
-    unless guess.all? { |colour| COLOURS.include?(colour) }
-      puts 'At least one of the colours is not a possible one in the game.'
-      return false
-    end
-    true
   end
 
   def win?(guess)
@@ -128,6 +128,10 @@ class Display
 
   def ask_guess
     puts "\nWhat is your guess?"
+  end
+
+  def ask_code
+    puts 'What should the code be? Enter up to 4 pieces, any undeclared piece is going to be randomized.'
   end
 
   def add_guess(guess, turn)
@@ -186,6 +190,7 @@ class Mastermind
 
     @player1 = player1
     @player2 = player2
+    Player.add_to_game(player1, player2, self)
     @player1_name = player1.name
     @player2_name = player2.name
     ask_roles
@@ -268,12 +273,18 @@ end
 # This class handles player info and creation.
 class Player
   attr_reader :name, :points, :ishuman
-  attr_accessor :role
+  attr_accessor :role, :game
 
   def initialize(name)
     @name = name.to_s
     @role = nil
     @points = nil
+    @game = nil
+  end
+
+  def self.add_to_game(player1, player2, game)
+    player1.game = game
+    player2.game = game
   end
 
   def self.assign_roles(player1, player2)
@@ -285,11 +296,26 @@ end
 
 # This is a class that handles Human players.
 class Human < Player
+  include Rules
   attr_reader :name, :points, :ishuman
 
   def initialize(name)
     super(name)
     @ishuman = true
+  end
+
+  def create_code
+    game.display.ask_code
+    new_code = generate_code(gets.chomp.to_s.downcase)
+    return create_code unless legal?(new_code)
+
+    new_code
+  end
+
+  def generate_code(code)
+    new_code = code.split(' ')
+    new_code << COLOURS.sample while new_code.length < 5
+    @secret_code = new_code[0..3]
   end
 end
 
