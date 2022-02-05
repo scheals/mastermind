@@ -129,36 +129,53 @@ module Swaszek
         next if guess[i] == guess[i - 1]
 
         @possibilities.reject! { |possibility| possibility.include?(guess[i]) }
-        puts "I removed some!"
+        puts 'I removed some!'
         p @possibilities
       end
     elsif (perfects + exists) == 4
       guesses = guess.tally
-      tallied_possibilities = @possibilities.reduce([]) { |acc, colours| acc << colours.tally }
-      tallied_possibilities.select! do |possibility|
+      @possibilities.select! do |possibility|
         count = {}
         count.default = 0
-        possibility.each_key do |colour|
-          count[colour] = possibility[colour] if guesses.keys.include?(colour)
+        possibility.each do |colour|
+          count[colour] = possibility.count(colour) if guesses.keys.include?(colour)
         end
-        if guesses.values.sum == count.values.sum
+        if guesses == possibility.tally || guesses.to_a.reverse.to_h == possibility.tally
           puts "#{guesses} this was the guess"
+          puts "perfects: #{perfects} exists: #{exists}"
+          puts "#{possibility} this was the possibility"
+          puts 'I got one!'
+          next true
+        elsif guesses.values == count.values || guesses.values.reverse == count.values
+          puts "#{guesses} this was the guess"
+          puts "perfects: #{perfects} exists: #{exists}"
           puts "#{possibility} this was the possibility"
           puts 'I got one!'
           next true
         end
         next false
       end
-      jackpot = tallied_possibilities.each_with_object([]) do |hash, array|
-        helper = []
-        hash.each_pair { |colour, count| helper << "#{colour} " * count }
-        array << helper.join('').split(' ')
+      p @possibilities
+    else
+      guesses = guess.tally
+      @possibilities.select! do |possibility|
+        count = {}
+        count.default = 0
+        possibility.each do |colour|
+          count[colour] = possibility.count(colour) if guesses.keys.include?(colour)
+        end
+        if (perfects + exists) <= count.values.sum
+          puts "#{guesses} this was the guess"
+          puts "perfects: #{perfects} exists: #{exists}"
+          puts "#{possibility} this was the possibility"
+          puts 'I got one!'
+          next true
+        end
+        next false
       end
-      p jackpot
-      @possibilities.select! { |possibility| jackpot.include?(possibility) }
+      p @possibilities
     end
     @possibilities.reject! { |possibility| possibility == guess }
-    p @possibilities
   end
 end
 
