@@ -126,40 +126,40 @@ module Swaszek
 
   def calculate_possibilities(perfects, exists, turn)
     guess = read_guess(turn)
+    guesses = guess.tally
     if (perfects + exists).zero?
       4.times do |i|
         next if guess[i] == guess[i - 1]
 
         @possibilities.reject! { |possibility| possibility.include?(guess[i]) }
       end
-    elsif (perfects + exists) == 4
-      guesses = guess.tally
+    elsif exists == 4
+      @possibilities.select! { |possibility| guesses == possibility.tally }
       @possibilities.reject! do |possibility|
-        next true if guesses != possibility.tally
+        flag = false
+        possibility.each_index do |index|
+          break flag = true if possibility[index] == guess[index]
+        end
+        next false unless flag == true
 
-        next false
+        next true
       end
+    elsif (perfects + exists) == 4
+      @possibilities.select! { |possibility| guesses == possibility.tally }
     else
-      guesses = guess.tally
-      @possibilities.select! do |possibility|
+      @possibilities.reject! do |possibility|
         count = {}
         count.default = 0
         possibility.each do |colour|
           count[colour] = possibility.count(colour) if guesses.keys.include?(colour)
         end
-        if (perfects + exists) <= count.values.sum
-          next true
-        end
-        next false
-      end
-      @possibilities.reject! do |possibility|
-        next true if guesses == possibility.tally
+        next true if (perfects + exists) > count.values.sum
 
         next false
       end
+      @possibilities.reject! { |possibility| guesses == possibility.tally }
     end
     @possibilities.reject! { |possibility| possibility == guess }
-    p @possibilities if turn == 10
   end
 end
 
@@ -319,7 +319,7 @@ class Mastermind
   def declare_winner
     @repeats = 1 if @repeats.nil?
     @winnable = 0 if @winnable.nil?
-    @in_progress = false if @repeats == 1000
+    @in_progress = false if @repeats == 10_000
     @turn = 1
     puts "#{@secret_code} this is was the code"
     @winnable += codebreaker.possibilities.count(@secret_code) if codebreaker.possibilities.include?(@secret_code)
@@ -327,7 +327,7 @@ class Mastermind
     codebreaker.create_all_possibilities
     puts "#{@secret_code} this is the next code"
     puts "This is repeat #{@repeats}"
-    puts "These many matches were winnable: #{@winnable}" if @repeats == 1000
+    puts "These many matches were winnable: #{@winnable}" if @repeats == 10_000
     @repeats += 1
   end
 
