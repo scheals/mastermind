@@ -92,6 +92,7 @@ module Rules
 
   def codebreaker_wins
     display.codebreaker_win(@turn, codebreaker)
+    @stats[:codebreaker] += 1
     declare_winner
   end
 
@@ -99,6 +100,7 @@ module Rules
     return unless turn_limit_reached
 
     display.codemaker_win(@turn, codemaker)
+    @stats[:codemaker] += 1
     declare_winner
   end
 end
@@ -129,33 +131,14 @@ module Swaszek
         next if guess[i] == guess[i - 1]
 
         @possibilities.reject! { |possibility| possibility.include?(guess[i]) }
-        puts 'I removed some!'
-        p @possibilities
       end
     elsif (perfects + exists) == 4
       guesses = guess.tally
-      @possibilities.select! do |possibility|
-        count = {}
-        count.default = 0
-        possibility.each do |colour|
-          count[colour] = possibility.count(colour) if guesses.keys.include?(colour)
-        end
-        if guesses == possibility.tally || guesses.to_a.reverse.to_h == possibility.tally
-          puts "#{guesses} this was the guess"
-          puts "perfects: #{perfects} exists: #{exists}"
-          puts "#{possibility} this was the possibility"
-          puts 'I got one!'
-          next true
-        elsif guesses.values == count.values || guesses.values.reverse == count.values
-          puts "#{guesses} this was the guess"
-          puts "perfects: #{perfects} exists: #{exists}"
-          puts "#{possibility} this was the possibility"
-          puts 'I got one!'
-          next true
-        end
+      @possibilities.reject! do |possibility|
+        next true if guesses != possibility.tally
+
         next false
       end
-      p @possibilities
     else
       guesses = guess.tally
       @possibilities.select! do |possibility|
@@ -165,17 +148,18 @@ module Swaszek
           count[colour] = possibility.count(colour) if guesses.keys.include?(colour)
         end
         if (perfects + exists) <= count.values.sum
-          puts "#{guesses} this was the guess"
-          puts "perfects: #{perfects} exists: #{exists}"
-          puts "#{possibility} this was the possibility"
-          puts 'I got one!'
           next true
         end
         next false
       end
-      p @possibilities
+      @possibilities.reject! do |possibility|
+        next true if guesses == possibility.tally
+
+        next false
+      end
     end
     @possibilities.reject! { |possibility| possibility == guess }
+    p @possibilities if turn == 10
   end
 end
 
@@ -252,11 +236,13 @@ class Mastermind
   include Rules
   attr_reader :player1_name, :player2_name, :game_name, :player1, :player2, :secret_code,
               :display, :gameboard, :codemaker, :codebreaker
+  attr_accessor :stats
 
   @game_count = 0
 
   def initialize
     @game_name = "Game #{self.class.count}"
+    @stats = { codemaker: 0, codebreaker: 0 }
   end
 
   def add_players(player1, player2)
@@ -312,15 +298,17 @@ class Mastermind
   def computer_play
     return make_guess(%w[pink pink red red], @turn) if @turn == 1
 
-    # codebreaker.read_results(@turn)
-    # return make_guess(%w[yellow yellow green green], @turn) if @turn == 2
+    # return make_guess(%w[yellow green red purple], @turn) if @turn == 2
+    # # return make_guess(%w[yellow purple pink blue], @turn) if @turn == 3
+    # # codebreaker.read_results(@turn)
+    # return make_guess(%w[green yellow red blue], @turn) if @turn == 4
 
     # codebreaker.read_results(@turn)
     # return make_guess(%w[yellow yellow yellow green], @turn) if @turn == 3
 
     codebreaker.read_results(@turn)
-    possibilities = codebreaker.possibilities.sample
-    make_guess(possibilities, @turn)
+    possibility = codebreaker.possibilities.sample
+    make_guess(possibility, @turn)
   end
 
   def play
@@ -329,7 +317,18 @@ class Mastermind
   end
 
   def declare_winner
-    @in_progress = false
+    @repeats = 1 if @repeats.nil?
+    @winnable = 0 if @winnable.nil?
+    @in_progress = false if @repeats == 1000
+    @turn = 1
+    puts "#{@secret_code} this is was the code"
+    @winnable += codebreaker.possibilities.count(@secret_code) if codebreaker.possibilities.include?(@secret_code)
+    @secret_code = codebreaker.create_code
+    codebreaker.create_all_possibilities
+    puts "#{@secret_code} this is the next code"
+    puts "This is repeat #{@repeats}"
+    puts "These many matches were winnable: #{@winnable}" if @repeats == 1000
+    @repeats += 1
   end
 
   def ask_roles
@@ -436,4 +435,4 @@ hal = Computer.new('HAL')
 space_oddysey.add_players(brave, hal)
 space_oddysey.attach_display(cosmos)
 space_oddysey.start
-space_oddysey.start
+p space_oddysey.stats
