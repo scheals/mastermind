@@ -146,6 +146,15 @@ module Swaszek
       end
     elsif (perfects + exists) == 4
       @possibilities.select! { |possibility| guesses == possibility.tally }
+      @possibilities.reject! do |possibility|
+        counter = 0
+        possibility.each_index do |index|
+          counter += 1 if possibility[index] == guess[index]
+        end
+        next false if counter == perfects
+
+        next true
+      end
     else
       @possibilities.reject! do |possibility|
         count = {}
@@ -156,6 +165,17 @@ module Swaszek
         next true if (perfects + exists) > count.values.sum
 
         next false
+      end
+      if perfects.positive?
+        @possibilities.reject! do |possibility|
+          counter = 0
+          possibility.each_index do |index|
+            counter += 1 if possibility[index] == guess[index]
+          end
+          next false if counter == perfects
+
+          next true
+        end
       end
       @possibilities.reject! { |possibility| guesses == possibility.tally }
     end
@@ -297,14 +317,6 @@ class Mastermind
 
   def computer_play
     return make_guess(%w[pink pink red red], @turn) if @turn == 1
-
-    # return make_guess(%w[yellow green red purple], @turn) if @turn == 2
-    # # return make_guess(%w[yellow purple pink blue], @turn) if @turn == 3
-    # # codebreaker.read_results(@turn)
-    # return make_guess(%w[green yellow red blue], @turn) if @turn == 4
-
-    # codebreaker.read_results(@turn)
-    # return make_guess(%w[yellow yellow yellow green], @turn) if @turn == 3
 
     codebreaker.read_results(@turn)
     possibility = codebreaker.possibilities.sample
