@@ -92,6 +92,7 @@ module Rules
 
   def codebreaker_wins
     display.codebreaker_win(@turn, codebreaker)
+    @stats[:codebreaker] += 1
     declare_winner
   end
 
@@ -99,6 +100,7 @@ module Rules
     return unless turn_limit_reached
 
     display.codemaker_win(@turn, codemaker)
+    @stats[:codemaker] += 1
     declare_winner
   end
 end
@@ -126,56 +128,83 @@ module Swaszek
     guess = read_guess(turn)
     guesses = guess.tally
     if (perfects + exists).zero?
-      4.times do |i|
-        next if guess[i] == guess[i - 1]
-
-        @possibilities.reject! { |possibility| possibility.include?(guess[i]) }
-      end
+      zero_hits(guess)
     elsif exists == 4
-      @possibilities.select! { |possibility| guesses == possibility.tally }
-      @possibilities.reject! do |possibility|
-        flag = false
-        possibility.each_index do |index|
-          break flag = true if possibility[index] == guess[index]
-        end
-        next false unless flag == true
-
-        next true
-      end
+      all_exists(guess, guesses)
     elsif (perfects + exists) == 4
-      @possibilities.select! { |possibility| guesses == possibility.tally }
-      @possibilities.reject! do |possibility|
-        counter = 0
-        possibility.each_index do |index|
-          counter += 1 if possibility[index] == guess[index]
-        end
-        next false if counter == perfects
-
-        next true
-      end
+      four_hits(guess, guesses, perfects)
     else
-      @possibilities.reject! do |possibility|
-        count = {}
-        count.default = 0
-        possibility.each do |colour|
-          count[colour] = possibility.count(colour) if guesses.keys.include?(colour)
-        end
-        next true if (perfects + exists) > count.values.sum
-
-        next false
-      end
-      @possibilities.reject! do |possibility|
-        counter = 0
-        possibility.each_index do |index|
-          counter += 1 if possibility[index] == guess[index]
-        end
-        next false if counter == perfects
-
-        next true
-      end
-      @possibilities.reject! { |possibility| guesses == possibility.tally }
+      various_hits(guess, guesses, perfects, exists)
     end
     @possibilities.reject! { |possibility| possibility == guess }
+  end
+
+  def zero_hits(guess)
+    4.times do |i|
+      next if guess[i] == guess[i - 1]
+
+      @possibilities.reject! { |possibility| possibility.include?(guess[i]) }
+    end
+    @possibilities.reject! { |possibility| possibility == guess }
+  end
+
+  def all_exists(guess, guesses)
+    @possibilities.select! { |possibility| guesses == possibility.tally }
+    @possibilities.reject! do |possibility|
+      flag = false
+      possibility.each_index do |index|
+        break flag = true if possibility[index] == guess[index]
+      end
+      next false unless flag == true
+
+      next true
+    end
+    @possibilities.reject! { |possibility| possibility == guess }
+  end
+
+  def four_hits(guess, guesses, perfects)
+    @possibilities.select! { |possibility| guesses == possibility.tally }
+    @possibilities.reject! do |possibility|
+      counter = 0
+      possibility.each_index do |index|
+        counter += 1 if possibility[index] == guess[index]
+      end
+      next false if counter == perfects
+
+      next true
+    end
+    @possibilities.reject! { |possibility| possibility == guess }
+  end
+
+  def various_hits(guess, guesses, perfects, exists)
+    understand_hint(guesses, perfects, exists)
+    understand_perfects(guess, perfects)
+    @possibilities.reject! { |possibility| guesses == possibility.tally }
+  end
+
+  def understand_perfects(guess, perfects)
+    @possibilities.reject! do |possibility|
+      counter = 0
+      possibility.each_index do |index|
+        counter += 1 if possibility[index] == guess[index]
+      end
+      next false if counter == perfects
+
+      next true
+    end
+  end
+
+  def understand_hint(guesses, perfects, exists)
+    @possibilities.reject! do |possibility|
+      count = {}
+      count.default = 0
+      possibility.each do |colour|
+        count[colour] = possibility.count(colour) if guesses.keys.include?(colour)
+      end
+      next true if (perfects + exists) > count.values.sum
+
+      next false
+    end
   end
 end
 
@@ -252,11 +281,13 @@ class Mastermind
   include Rules
   attr_reader :player1_name, :player2_name, :game_name, :player1, :player2, :secret_code,
               :display, :gameboard, :codemaker, :codebreaker
+  attr_accessor :stats
 
   @game_count = 0
 
   def initialize
     @game_name = "Game #{self.class.count}"
+    @stats = { codemaker: 0, codebreaker: 0 }
   end
 
   def add_players(player1, player2)
@@ -323,7 +354,18 @@ class Mastermind
   end
 
   def declare_winner
-    @in_progress = false
+    @repeats = 1 if @repeats.nil?
+    @winnable = 0 if @winnable.nil?
+    @in_progress = false if @repeats == 10_000
+    @turn = 1
+    puts "#{@secret_code} this is was the code"
+    @winnable += codebreaker.possibilities.count(@secret_code) if codebreaker.possibilities.include?(@secret_code)
+    @secret_code = codebreaker.create_code
+    codebreaker.create_all_possibilities
+    puts "#{@secret_code} this is the next code"
+    puts "This is repeat #{@repeats}"
+    puts "These many matches were winnable: #{@winnable}" if @repeats == 10_000
+    @repeats += 1
   end
 
   def ask_roles
@@ -430,3 +472,4 @@ hal = Computer.new('HAL')
 space_oddysey.add_players(brave, hal)
 space_oddysey.attach_display(cosmos)
 space_oddysey.start
+p space_oddysey.stats
