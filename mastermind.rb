@@ -221,7 +221,7 @@ class Board
   end
 
   def make_guess(guess)
-    return play unless legal?(guess)
+    return @game.codebreaker.play unless legal?(guess)
 
     add_guess(guess)
     if check_any?(guess)
