@@ -15,6 +15,7 @@ For offline use simply download the file to one directory and run it in irb for 
 
 ## Features
 * Guessing algorithm that never fails to lose and doesn't cheat
+* Create random secret code or randomize parts of it
 
 ## Possible future additions
 
@@ -23,6 +24,7 @@ For offline use simply download the file to one directory and run it in irb for 
 
 ### Additional Features
 * Replay game function
+* Tell the guesser what the secret code was if they did not manage to guess it
 * Guesses being randomized or randomized in part
 * Ability to choose AI difficulty that'll make it "forget" some of its features
 
