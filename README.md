@@ -70,6 +70,10 @@ Maybe let's go back to the *why* of this:
 Because I used some helper functions that extract two values out of something, the only way to pass them both at once is to call a function with those two values as arguments.
 This cuts down on repetition because if I were to divide up those helper functions so they return one value, I'd have to call them every time I need them. I opted for passing them down multiple times so this does not happen. Not sure if that's the correct way.
 
+### `all_exists` is a nightmare
+
+I had a very hard time making this `reject!` work like I wanted it to. I needed to grab the indexes from particular possibilities and to compare them but this comparison needed to be given to `reject!` to judge. It's supposed to reject those possibilities that have colours in the same positions as the guess. You can see a different version of with `reject!` in `understand_perfects` that makes sure that possibilities that wouldn't have the same amount of perfects are thrown out. I created `flag` because I couldn't simply `break true` to achieve what I wanted.
+
 ### I made no effort to use `private` at all
 This time around I tried not putting too much pressure onto myself to hide away everything that could be hidden but I kind of managed to get on the other side of the extreme,
 I am probably going to fix this somewhere down the line when we come back to these projects to build tests for them but I really, really want pointers in regards to this.
