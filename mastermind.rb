@@ -1,24 +1,11 @@
 # frozen_string_literal: true
 
-# This is a module that handles game logic of Mastermind.
+# This is a module that handles the rules.
 module Rules
   COLOURS = %w[pink red green blue purple yellow].freeze
   GUESS_SPACE = [' ', ' ', ' ', ' '].freeze
   HINT_SPACE = [' ', ' ', ' ', ' '].freeze
   GAMEBOARD = [[GUESS_SPACE], [HINT_SPACE]].freeze
-
-  def make_guess(guess, turn)
-    return play unless legal?(guess)
-
-    @turn += 1
-    display.add_guess(guess, turn)
-    if check_any?(guess)
-      create_hint(guess, turn)
-    else
-      display.add_hint([[], []], turn)
-    end
-    win?(guess) ? codebreaker_wins : codemaker_wins(turn_limit?)
-  end
 
   def legal?(guess)
     if guess.length != 4
@@ -31,91 +18,19 @@ module Rules
     end
     true
   end
-
-  def check_any?(guess)
-    return false if secret_code.intersection(guess).empty?
-
-    true
-  end
-
-  def create_hint(guess, turn)
-    hint = [[], []]
-    check_matches(guess, hint)
-    display.add_hint(hint, turn)
-  end
-
-  def check_colours(colours, code, hint)
-    colours.each do |colour, count|
-      while (code[colour] >= count || count >= code[colour]) && code[colour].positive? && count.positive?
-        hint[1].push('exists')
-        code[colour] -= 1
-        count -= 1
-      end
-    end
-  end
-
-  def check_matches(guess, hint)
-    perfect_matches = guess.filter.with_index { |colour, i| colour == secret_code[i] }
-    hint[0] = perfect_matches.map { 'perfect' }
-    tally_helper(guess, perfect_matches, hint)
-  end
-
-  def tally_helper(guess, matches, hint)
-    tallied_matches = matches.tally
-    tallied_guess = guess.tally
-    tallied_code = secret_code.tally
-    tallied_matches.default = 0
-    tallied_guess.default = 0
-    tallied_code.default = 0
-    check_colours(drop_guess_matches(tallied_guess, tallied_matches), drop_code_matches(tallied_code, tallied_matches), hint)
-  end
-
-  def drop_code_matches(code, matches)
-    code.each { |colour, count| code[colour] = count - matches[colour] }
-  end
-
-  def drop_guess_matches(guess, matches)
-    guess.each { |colour, count| guess[colour] = count - matches[colour] }
-  end
-
-  def win?(guess)
-    return true if guess == secret_code
-
-    false
-  end
-
-  def turn_limit?
-    return true if @turn > 10
-
-    false
-  end
-
-  def codebreaker_wins
-    display.codebreaker_win(@turn, codebreaker)
-    @stats[:codebreaker] += 1
-    declare_winner
-  end
-
-  def codemaker_wins(turn_limit_reached)
-    return unless turn_limit_reached
-
-    display.codemaker_win(@turn, codemaker)
-    @stats[:codemaker] += 1
-    declare_winner
-  end
 end
 
 # This is Swaszek's algorithm for code breaking.
 module Swaszek
   def read_results(turn)
-    perfects = game.gameboard[1][turn - 2][0].length if turn > 1
-    exists = game.gameboard[1][turn - 2][1].length if turn > 1
+    perfects = board.gameboard[1][turn - 2][0].length if turn > 1
+    exists = board.gameboard[1][turn - 2][1].length if turn > 1
     calculate_possibilities(perfects, exists, turn)
   end
 
   def read_guess(turn)
     create_all_possibilities if @possibilities.nil?
-    game.gameboard[0][turn - 2] if turn > 1
+    board.gameboard[0][turn - 2] if turn > 1
   end
 
   def create_all_possibilities
@@ -211,10 +126,21 @@ end
 # This class handles the display.
 class Display
   include Rules
-  attr_reader :gameboard
+
+  attr_reader :board
 
   def initialize
-    @gameboard = [[GUESS_SPACE], [HINT_SPACE]]
+    @type = "I'm a console display!"
+    @game = nil
+    @board = nil
+  end
+
+  def attach_game(game)
+    @game = game
+  end
+
+  def attach_board(board)
+    @board = board
   end
 
   def introduce_rules
@@ -237,32 +163,16 @@ class Display
     puts 'What should the code be? Enter up to 4 pieces, any undeclared piece is going to be randomized.'
   end
 
-  def add_guess(guess, turn)
-    return gameboard[0] = [guess] if turn == 1
-
-    gameboard[0].push(guess)
-  end
-
-  def add_hint(hint, turn)
-    return gameboard[1] = [hint] if turn == 1
-
-    gameboard[1].push(hint)
-  end
-
-  def show_gameboard(turn)
-    puts "Turn #{turn}"
-    puts 'This is the current state of the gameboard:'
-    gameboard[0].length.times do |i|
-      puts "#{gameboard[0][i]} #{gameboard[1][i]}"
-    end
-  end
-
   def in_progress
     puts 'Game is already in progress.'
   end
 
   def game_end
     puts 'Game has already ended.'
+  end
+
+  def win_message(winner)
+    puts "Congratulations #{winner}, you've won!"
   end
 
   def codebreaker_win(turn, codebreaker)
@@ -274,13 +184,144 @@ class Display
     show_gameboard(turn - 1)
     puts "Congratulations #{codemaker.name}, your code was not broken!"
   end
+
+  def show_gameboard(turn)
+    puts "Turn #{turn}"
+    puts 'This is the current state of the gameboard:'
+    board.gameboard[0].length.times do |i|
+      puts "#{board.gameboard[0][i]} #{board.gameboard[1][i]}"
+    end
+  end
+end
+
+# This class handles the gameboard logic.
+class Board
+  include Rules
+  attr_reader :gameboard, :turn
+
+  def initialize
+    @gameboard = [[GUESS_SPACE], [HINT_SPACE]]
+    @game = nil
+  end
+
+  def attach_game(game)
+    @game = game
+  end
+
+  def attach_display(display)
+    @display = display
+    display.attach_board(self)
+  end
+
+  def begin_game
+    Player.add_to_board(@game.player1, @game.player2, self)
+    @turn = 1
+    @secret_code = @game.codemaker.create_code
+    @game.codebreaker.game_loop
+  end
+
+  def make_guess(guess)
+    return play unless legal?(guess)
+
+    add_guess(guess)
+    if check_any?(guess)
+      create_hint(guess)
+    else
+      add_hint([[], []])
+    end
+    @turn += 1
+    win?(guess) ? codebreaker_wins : codemaker_wins(turn_limit?)
+  end
+
+  def add_guess(guess)
+    return @gameboard[0] = [guess] if @turn == 1
+
+    @gameboard[0].push(guess)
+  end
+
+  def add_hint(hint)
+    return @gameboard[1] = [hint] if @turn == 1
+
+    @gameboard[1].push(hint)
+  end
+
+  def check_any?(guess)
+    return false if @secret_code.intersection(guess).empty?
+
+    true
+  end
+
+  def create_hint(guess)
+    hint = [[], []]
+    check_matches(guess, hint)
+    add_hint(hint)
+  end
+
+  def check_colours(colours, code, hint)
+    colours.each do |colour, count|
+      while (code[colour] >= count || count >= code[colour]) && code[colour].positive? && count.positive?
+        hint[1].push('exists')
+        code[colour] -= 1
+        count -= 1
+      end
+    end
+  end
+
+  def check_matches(guess, hint)
+    perfect_matches = guess.filter.with_index { |colour, i| colour == @secret_code[i] }
+    hint[0] = perfect_matches.map { 'perfect' }
+    tally_helper(guess, perfect_matches, hint)
+  end
+
+  def tally_helper(guess, matches, hint)
+    tallied_matches = matches.tally
+    tallied_guess = guess.tally
+    tallied_code = @secret_code.tally
+    tallied_matches.default = 0
+    tallied_guess.default = 0
+    tallied_code.default = 0
+    check_colours(drop_guess_matches(tallied_guess, tallied_matches), drop_code_matches(tallied_code, tallied_matches), hint)
+  end
+
+  def drop_code_matches(code, matches)
+    code.each { |colour, count| code[colour] = count - matches[colour] }
+  end
+
+  def drop_guess_matches(guess, matches)
+    guess.each { |colour, count| guess[colour] = count - matches[colour] }
+  end
+
+  def win?(guess)
+    return true if guess == @secret_code
+
+    false
+  end
+
+  def turn_limit?
+    return true if @turn > 10
+
+    false
+  end
+
+  def codebreaker_wins
+    @display.codebreaker_win(@turn, @game.codebreaker)
+    @game.stats[:codebreaker] += 1
+    @game.declare_winner
+  end
+
+  def codemaker_wins(turn_limit_reached)
+    return unless turn_limit_reached
+
+    @display.codemaker_win(@turn, @game.codemaker)
+    @game.stats[:codemaker] += 1
+    @game.declare_winner
+  end
 end
 
 # This class handles the Mastermind game.
 class Mastermind
-  include Rules
-  attr_reader :player1_name, :player2_name, :game_name, :player1, :player2, :secret_code,
-              :display, :gameboard, :codemaker, :codebreaker
+  attr_reader :player1_name, :player2_name, :game_name, :player1, :player2,
+              :display, :board, :codemaker, :codebreaker, :in_progress
   attr_accessor :stats
 
   @game_count = 0
@@ -304,68 +345,35 @@ class Mastermind
 
   def attach_display(display)
     @display = display
-    @gameboard = display.gameboard
+    display.attach_game(self)
     "Added #{display} to #{game_name}"
   end
 
+  def attach_board(board)
+    @board = board
+    board.attach_game(self)
+    "Added #{board} to #{game_name}"
+  end
+
   def start
-    return unless players_ready? && display_ready?
+    return unless players_ready? && display_ready? && board_ready?
 
     @in_progress = true if @in_progress.nil?
     return display.game_end unless @in_progress
 
-    @turn = 1
+    board.attach_display(display)
     display.introduce_rules
-    @secret_code = codemaker.create_code
-    codemaker.ishuman ? computer_game_loop : game_loop
+    board.begin_game
   end
 
   def self.count
     @game_count += 1
   end
 
-  private
-
-  def game_loop
-    until turn_limit? || !@in_progress
-      display.show_gameboard(@turn)
-      play
-    end
-  end
-
-  def computer_game_loop
-    until turn_limit? || !@in_progress
-      display.show_gameboard(@turn)
-      computer_play
-    end
-  end
-
-  def computer_play
-    return make_guess(codebreaker.create_code, @turn) if @turn == 1
-
-    codebreaker.read_results(@turn)
-    possibility = codebreaker.possibilities.sample
-    make_guess(possibility, @turn)
-  end
-
-  def play
-    display.ask_guess
-    make_guess(gets.chomp.to_s.downcase.split(' '), @turn)
-  end
+  # private
 
   def declare_winner
-    @repeats = 1 if @repeats.nil?
-    @winnable = 0 if @winnable.nil?
-    @in_progress = false if @repeats == 10_000
-    @turn = 1
-    puts "#{@secret_code} this is was the code"
-    @winnable += codebreaker.possibilities.count(@secret_code) if codebreaker.possibilities.include?(@secret_code)
-    @secret_code = codebreaker.create_code
-    codebreaker.create_all_possibilities
-    puts "#{@secret_code} this is the next code"
-    puts "This is repeat #{@repeats}"
-    puts "These many matches were winnable: #{@winnable}" if @repeats == 10_000
-    @repeats += 1
+    @in_progress = false
   end
 
   def ask_roles
@@ -398,18 +406,27 @@ class Mastermind
     puts 'Seems like you forgot to attach your display.'
     false
   end
+
+  def board_ready?
+    return true if board
+
+    puts 'Seems like you forgot to set up your gameboard.'
+    false
+  end
 end
 
 # This class handles player info and creation.
 class Player
+  include Rules
   attr_reader :name, :points, :ishuman
-  attr_accessor :role, :game
+  attr_accessor :role, :game, :board
 
   def initialize(name)
     @name = name.to_s
     @role = nil
     @points = nil
     @game = nil
+    @board = nil
   end
 
   def self.add_to_game(player1, player2, game)
@@ -422,11 +439,15 @@ class Player
     player2.role = 'codebreaker'
     puts "Added #{player1.name} as #{player1.role} and #{player2.name} as #{player2.role}."
   end
+
+  def self.add_to_board(player1, player2, board)
+    player1.board = board
+    player2.board = board
+  end
 end
 
 # This is a class that handles Human players.
 class Human < Player
-  include Rules
   attr_reader :name, :points, :ishuman
 
   def initialize(name)
@@ -447,11 +468,22 @@ class Human < Player
     new_code << COLOURS.sample while new_code.length < 5
     @secret_code = new_code[0..3]
   end
+
+  def game_loop
+    until board.turn_limit? || !game.in_progress
+      game.display.show_gameboard(board.turn)
+      play
+    end
+  end
+
+  def play
+    game.display.ask_guess
+    board.make_guess(gets.chomp.to_s.downcase.split(' '))
+  end
 end
 
 # This is a class that handles Computer players.
 class Computer < Player
-  include Rules
   include Swaszek
   attr_reader :name, :points, :ishuman, :possibilities
 
@@ -464,12 +496,30 @@ class Computer < Player
     code << COLOURS.sample while code.length < 5
     @secret_code = code[0..3]
   end
+
+  def game_loop
+    until board.turn_limit? || !game.in_progress
+
+      game.display.show_gameboard(board.turn)
+      play
+    end
+  end
+
+  def play
+    return board.make_guess(create_code) if board.turn == 1
+
+    read_results(board.turn)
+    possibility = possibilities.sample
+    board.make_guess(possibility)
+  end
 end
 space_oddysey = Mastermind.new
 cosmos = Display.new
+spaceship = Board.new
 brave = Human.new('Dave')
 hal = Computer.new('HAL')
 space_oddysey.add_players(brave, hal)
 space_oddysey.attach_display(cosmos)
+space_oddysey.attach_board(spaceship)
 space_oddysey.start
 p space_oddysey.stats
