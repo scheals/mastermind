@@ -9,6 +9,8 @@ Specification and instruction from [The Odin Project](https://www.theodinproject
 
 ## How to use
 
+For online use go to the [repl](https://replit.com/@scheals/Mastermind?v=1).
+
 For offline use simply download the file to one directory and run it in irb for a game prepared with players.
 
 ## Features
